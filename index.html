@@ -1,11 +1,26 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Redirect</title>
+  <meta charset="utf-8" />
+  <title>Redirect</title>
 </head>
 <body>
-    <script>
-        window.location.href = "https://auth.nordicapigateway.com/stage-routing/callback?code=123";
-    </script>
+  <script>
+    (function () {
+      // Redirect back to the same origin that served this page (the "caller"),
+      // and append the fixed callback path + query.
+      //
+      // Example:
+      //   https://app-test.nordicapigateway.com/some/page
+      //     -> https://app-test.nordicapigateway.com/stage-routing/callback?code=123
+      //
+      // Note: If this is hosted on GitHub Pages, origin will be https://<user>.github.io
+      // In that case it will redirect back to GitHub Pages unless you use a host override approach.
+      const origin = window.location.origin; // scheme + hostname (+ port)
+
+      const url = `${origin}/stage-routing/callback?code=123`;
+      window.location.replace(url);
+    })();
+  </script>
 </body>
 </html>
