@@ -1,11 +1,34 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Redirect</title>
+  <meta charset="utf-8" />
+  <title>Redirect</title>
 </head>
 <body>
-    <script>
-        window.location.href = "https://auth.nordicapigateway.com/stage-routing/callback?code=123";
-    </script>
+  <script>
+    (function () {
+      // When hosted on GitHub Pages the hostname will be like:
+      //   <user>.github.io  or  <org>.github.io  or  <org>.github.io/<repo>
+      // so we cannot infer "app-test.nordicapigateway.com" from window.location.hostname.
+      //
+      // Instead, take the target host from a query parameter, e.g.:
+      //   https://<user>.github.io/<repo>/redirect.html?host=app-test.nordicapigateway.com&code=123
+      //
+      // Safety: restrict redirects to *.nordicapigateway.com only.
+      const params = new URLSearchParams(window.location.search);
+
+      const host = params.get("host"); // e.g. "app-test.nordicapigateway.com"
+      const code = params.get("code") || "123";
+
+      if (!host || !/^[a-z0-9.-]+\.nordicapigateway\.com$/i.test(host)) {
+        document.body.textContent =
+          "Missing or invalid 'host' parameter. Expected something like host=app-test.nordicapigateway.com";
+        return;
+      }
+
+      const url = `https://${host}/stage-routing/callback?code=${encodeURIComponent(code)}`;
+      window.location.replace(url);
+    })();
+  </script>
 </body>
 </html>
