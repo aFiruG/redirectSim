@@ -7,22 +7,30 @@
 <body>
   <script>
     (function () {
-      // When hosted on GitHub Pages the hostname will be like:
-      //   <user>.github.io  or  <org>.github.io  or  <org>.github.io/<repo>
-      // so we cannot infer "app-test.nordicapigateway.com" from window.location.hostname.
-      //
-      // Instead, take the target host from a query parameter, e.g.:
-      //   https://<user>.github.io/<repo>/redirect.html?host=app-test.nordicapigateway.com&code=123
-      //
-      // Safety: restrict redirects to *.nordicapigateway.com only.
+      const DEFAULT_HOST = "auth.nordicapigateway.com";
       const params = new URLSearchParams(window.location.search);
 
-      const host = params.get("host"); // e.g. "app-test.nordicapigateway.com"
+      const rawHost = params.get("host");              // what the caller provided (may be null)
+      const host = (rawHost || DEFAULT_HOST).trim();   // what we'll actually try to use
       const code = params.get("code") || "123";
 
-      if (!host || !/^[a-z0-9.-]+\.nordicapigateway\.com$/i.test(host)) {
-        document.body.textContent =
-          "Missing or invalid 'host' parameter. Expected something like host=app-test.nordicapigateway.com";
+      const isValid = /^[a-z0-9.-]+\.nordicapigateway\.com$/i.test(host);
+
+      if (!isValid) {
+        // Log useful diagnostics
+        console.error("Invalid host parameter for redirect:", {
+          rawHost,                         // original input
+          resolvedHost: host,              // after default/trim
+          fullQuery: window.location.search,
+          pageUrl: window.location.href
+        });
+
+        // Also show it on the page (helpful on mobile / when console isn't available)
+        document.body.innerHTML =
+          "<h3>Invalid host parameter</h3>" +
+          "<p><b>Provided host:</b> " + String(rawHost) + "</p>" +
+          "<p><b>Resolved host:</b> " + String(host) + "</p>" +
+          "<p><b>Query string:</b> " + String(window.location.search) + "</p>";
         return;
       }
 
