@@ -1,7 +1,58 @@
-/head>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Redirect</title>
+</head>
 <body>
-    <script>
-        window.location.href = "https://auth.nordicapigateway.com/stage-routing/callback?code=123";
-    </script>
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+
+      // Provided by the caller (URL-encoded)
+      const redirectUriRaw = params.get("redirect_uri");
+      const state = params.get("state") || "";
+
+      if (!redirectUriRaw) {
+        document.body.textContent = "Missing redirect_uri query parameter.";
+        console.error("Missing redirect_uri. Full URL:", window.location.href);
+        return;
+      }
+
+      let redirectUri;
+      try {
+        redirectUri = new URL(redirectUriRaw);
+      } catch (e) {
+        document.body.textContent = "Invalid redirect_uri query parameter.";
+        console.error("Invalid redirect_uri:", redirectUriRaw, "Error:", e);
+        return;
+      }
+
+      // Extract the subdomain from redirect_uri host.
+      // Example redirect_uri host: auth.nordicapigateway.com  -> subdomain = "auth"
+      const host = redirectUri.hostname; // ignore port if any
+      const match = host.match(/^([a-z0-9-]+)\.nordicapigateway\.com$/i);
+
+      if (!match) {
+        document.body.textContent =
+          "redirect_uri must be on *.nordicapigateway.com (e.g. https://auth.nordicapigateway.com/...).";
+        console.error("redirect_uri host not allowed:", {
+          redirectUri: redirectUriRaw,
+          parsedHost: host
+        });
+        return;
+      }
+
+      const subdomain = match[1];
+
+      // Build target URL:
+      // https://<subdomain>.nordicapigateway.com/stage-routing/callback?code=123&state=...
+      const target = new URL(`https://${subdomain}.nordicapigateway.com/stage-routing/callback`);
+      target.searchParams.set("code", "123");
+      if (state) target.searchParams.set("state", state);
+
+      window.location.replace(target.toString());
+    })();
+  </script>
 </body>
 </html>
