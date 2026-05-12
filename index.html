@@ -7,9 +7,11 @@
 <body>
   <script>
     (function () {
-      // Support both:
-      // 1) /redirectSim/?redirect_uri=...
-      // 2) /#/redirectSim?redirect_uri=...   (common on GitHub Pages/SPAs)
+      // HOTFIX:
+      // Some environments (e.g. GitHub Pages / certain redirects) may drop the query string,
+      // which makes redirect_uri unavailable. In that case we default to a known safe host.
+      const DEFAULT_HOST = "auth.nordicapigateway.com";
+
       function getParams() {
         const search = window.location.search || "";
 
@@ -20,7 +22,6 @@
 
         // Prefer search, fall back to hash query
         const raw = search && search.length > 1 ? search : hashQuery;
-
         return new URLSearchParams(raw);
       }
 
@@ -29,42 +30,38 @@
       const redirectUriRaw = params.get("redirect_uri");
       const state = params.get("state") || "";
 
-      if (!redirectUriRaw) {
-        document.body.textContent = "Missing redirect_uri query parameter.";
-        console.error("Missing redirect_uri.", {
-          href: window.location.href,
-          search: window.location.search,
-          hash: window.location.hash
-        });
-        return;
+      let hostToUse = DEFAULT_HOST;
+
+      if (redirectUriRaw) {
+        try {
+          const redirectUri = new URL(redirectUriRaw);
+
+          // More permissive: accept any subdomain depth as long as it ends with nordicapigateway.com
+          const host = redirectUri.hostname;
+          const suffix = ".nordicapigateway.com";
+
+          if (host && host.toLowerCase().endsWith(suffix)) {
+            hostToUse = host; // keep exact host from redirect_uri (e.g. auth.nordicapigateway.com)
+          } else {
+            console.warn(
+              "HOTFIX: redirect_uri host not allowed; defaulting to DEFAULT_HOST.",
+              { redirect_uri: redirectUriRaw, parsedHost: host, defaultHost: DEFAULT_HOST }
+            );
+          }
+        } catch (e) {
+          console.warn(
+            "HOTFIX: invalid redirect_uri; defaulting to DEFAULT_HOST.",
+            { redirect_uri: redirectUriRaw, defaultHost: DEFAULT_HOST, error: String(e) }
+          );
+        }
+      } else {
+        console.warn(
+          "HOTFIX: missing redirect_uri; defaulting to DEFAULT_HOST.",
+          { href: window.location.href, defaultHost: DEFAULT_HOST }
+        );
       }
 
-      let redirectUri;
-      try {
-        redirectUri = new URL(redirectUriRaw);
-      } catch (e) {
-        document.body.textContent = "Invalid redirect_uri query parameter.";
-        console.error("Invalid redirect_uri:", redirectUriRaw, "Error:", e);
-        return;
-      }
-
-      const host = redirectUri.hostname;
-      const suffix = ".nordicapigateway.com";
-
-      if (!host.toLowerCase().endsWith(suffix)) {
-        document.body.textContent = "redirect_uri must be on *.nordicapigateway.com.";
-        console.error("redirect_uri host not allowed:", { redirectUri: redirectUriRaw, parsedHost: host });
-        return;
-      }
-
-      const subdomainPart = host.slice(0, -suffix.length);
-      if (!subdomainPart) {
-        document.body.textContent = "redirect_uri must include a subdomain (e.g. auth.nordicapigateway.com).";
-        console.error("redirect_uri missing subdomain:", { redirectUri: redirectUriRaw, parsedHost: host });
-        return;
-      }
-
-      const target = new URL(`https://${subdomainPart}${suffix}/stage-routing/callback`);
+      const target = new URL(`https://${hostToUse}/stage-routing/callback`);
       target.searchParams.set("code", "123");
       if (state) target.searchParams.set("state", state);
 
