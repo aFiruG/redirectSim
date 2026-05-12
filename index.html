@@ -28,26 +28,33 @@
         return;
       }
 
-      // Extract the subdomain from redirect_uri host.
-      // Example redirect_uri host: auth.nordicapigateway.com  -> subdomain = "auth"
-      const host = redirectUri.hostname; // ignore port if any
-      const match = host.match(/^([a-z0-9-]+)\.nordicapigateway\.com$/i);
+      // More permissive:
+      // - allow any path/query on the redirect_uri
+      // - only require that the host ends with ".nordicapigateway.com"
+      // - allow multi-level subdomains (e.g. "auth", "app-test", "foo.bar")
+      const host = redirectUri.hostname; // excludes port
+      const suffix = ".nordicapigateway.com";
 
-      if (!match) {
+      if (!host.toLowerCase().endsWith(suffix)) {
         document.body.textContent =
           "redirect_uri must be on *.nordicapigateway.com (e.g. https://auth.nordicapigateway.com/...).";
-        console.error("redirect_uri host not allowed:", {
-          redirectUri: redirectUriRaw,
-          parsedHost: host
-        });
+        console.error("redirect_uri host not allowed:", { redirectUri: redirectUriRaw, parsedHost: host });
         return;
       }
 
-      const subdomain = match[1];
+      // Keep the exact subdomain part (everything before ".nordicapigateway.com")
+      const subdomainPart = host.slice(0, -suffix.length);
 
-      // Build target URL:
-      // https://<subdomain>.nordicapigateway.com/stage-routing/callback?code=123&state=...
-      const target = new URL(`https://${subdomain}.nordicapigateway.com/stage-routing/callback`);
+      // If redirect_uri is exactly "https://nordicapigateway.com/..." then subdomainPart will be ""
+      if (!subdomainPart) {
+        document.body.textContent =
+          "redirect_uri must include a subdomain, e.g. https://auth.nordicapigateway.com/...";
+        console.error("redirect_uri missing subdomain:", { redirectUri: redirectUriRaw, parsedHost: host });
+        return;
+      }
+
+      // Build target URL (fixed callback path)
+      const target = new URL(`https://${subdomainPart}${suffix}/stage-routing/callback`);
       target.searchParams.set("code", "123");
       if (state) target.searchParams.set("state", state);
 
