@@ -7,15 +7,35 @@
 <body>
   <script>
     (function () {
-      const params = new URLSearchParams(window.location.search);
+      // Support both:
+      // 1) /redirectSim/?redirect_uri=...
+      // 2) /#/redirectSim?redirect_uri=...   (common on GitHub Pages/SPAs)
+      function getParams() {
+        const search = window.location.search || "";
 
-      // Provided by the caller (URL-encoded)
+        // hash can be: "#/redirectSim?x=1&y=2" OR "#?x=1&y=2"
+        const hash = window.location.hash || "";
+        const hashQueryIndex = hash.indexOf("?");
+        const hashQuery = hashQueryIndex >= 0 ? hash.slice(hashQueryIndex) : "";
+
+        // Prefer search, fall back to hash query
+        const raw = search && search.length > 1 ? search : hashQuery;
+
+        return new URLSearchParams(raw);
+      }
+
+      const params = getParams();
+
       const redirectUriRaw = params.get("redirect_uri");
       const state = params.get("state") || "";
 
       if (!redirectUriRaw) {
         document.body.textContent = "Missing redirect_uri query parameter.";
-        console.error("Missing redirect_uri. Full URL:", window.location.href);
+        console.error("Missing redirect_uri.", {
+          href: window.location.href,
+          search: window.location.search,
+          hash: window.location.hash
+        });
         return;
       }
 
@@ -28,32 +48,22 @@
         return;
       }
 
-      // More permissive:
-      // - allow any path/query on the redirect_uri
-      // - only require that the host ends with ".nordicapigateway.com"
-      // - allow multi-level subdomains (e.g. "auth", "app-test", "foo.bar")
-      const host = redirectUri.hostname; // excludes port
+      const host = redirectUri.hostname;
       const suffix = ".nordicapigateway.com";
 
       if (!host.toLowerCase().endsWith(suffix)) {
-        document.body.textContent =
-          "redirect_uri must be on *.nordicapigateway.com (e.g. https://auth.nordicapigateway.com/...).";
+        document.body.textContent = "redirect_uri must be on *.nordicapigateway.com.";
         console.error("redirect_uri host not allowed:", { redirectUri: redirectUriRaw, parsedHost: host });
         return;
       }
 
-      // Keep the exact subdomain part (everything before ".nordicapigateway.com")
       const subdomainPart = host.slice(0, -suffix.length);
-
-      // If redirect_uri is exactly "https://nordicapigateway.com/..." then subdomainPart will be ""
       if (!subdomainPart) {
-        document.body.textContent =
-          "redirect_uri must include a subdomain, e.g. https://auth.nordicapigateway.com/...";
+        document.body.textContent = "redirect_uri must include a subdomain (e.g. auth.nordicapigateway.com).";
         console.error("redirect_uri missing subdomain:", { redirectUri: redirectUriRaw, parsedHost: host });
         return;
       }
 
-      // Build target URL (fixed callback path)
       const target = new URL(`https://${subdomainPart}${suffix}/stage-routing/callback`);
       target.searchParams.set("code", "123");
       if (state) target.searchParams.set("state", state);
