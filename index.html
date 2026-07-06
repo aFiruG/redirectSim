@@ -93,7 +93,10 @@
 
             const redirectFromContext = ctx && ctx.redirect ? ctx.redirect : null;
             const fallbackRedirectRaw = params.get("redirect_uri");
-            const sstState = (ctx && ctx.state) || params.get("state") || "";
+            // Prefer state from URL params over ctx.state.
+            // nag-auth's external-redirect endpoint rewrites the state param to the SLI ID.
+            // The ctx.state is stale (captured before the SLI exists) and reused across redirects.
+            const sstState = params.get("state") || (ctx && ctx.state) || "";
             const useFragments = ctx && ctx.use_fragments === true;
 
             const callbackUrl = extractCallbackUrl(fallbackRedirectRaw)
