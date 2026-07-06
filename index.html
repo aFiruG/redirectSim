@@ -93,7 +93,7 @@
 
             const redirectFromContext = ctx && ctx.redirect ? ctx.redirect : null;
             const fallbackRedirectRaw = params.get("redirect_uri");
-            const sstState = params.get("state") || (ctx && ctx.state) || "";
+            const sstState = (ctx && ctx.state) || params.get("state") || "";
             const useFragments = ctx && ctx.use_fragments === true;
 
             const callbackUrl = extractCallbackUrl(fallbackRedirectRaw)
