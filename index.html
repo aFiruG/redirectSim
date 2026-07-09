@@ -31,14 +31,12 @@
                 return new URLSearchParams(raw);
             }
 
-            function extractCallbackUrl(urlString) {
+            function extractHostFromUrlString(urlString) {
                 if (!urlString) return null;
                 try {
                     const u = new URL(urlString);
                     const host = (u.hostname || "").toLowerCase();
-                    if (host && host.endsWith(ALLOWED_SUFFIX)) {
-                        return `${u.origin}${u.pathname}`;
-                    }
+                    if (host && host.endsWith(ALLOWED_SUFFIX)) return u.hostname;
                     return null;
                 } catch (_) {
                     return null;
@@ -96,11 +94,20 @@
             const sstState = params.get("state") || (ctx && ctx.state) || "";
             const useFragments = ctx && ctx.use_fragments === true;
 
-            const callbackUrl = extractCallbackUrl(fallbackRedirectRaw)
-                || extractCallbackUrl(redirectFromContext)
-                || `https://${DEFAULT_HOST}/stage-routing/callback`;
+            let hostToUse = null;
+            hostToUse = extractHostFromUrlString(redirectFromContext);
+            if (!hostToUse) hostToUse = extractHostFromUrlString(fallbackRedirectRaw);
+            if (!hostToUse) {
+                console.warn("[redirectSim] No valid redirect host found; defaulting to DEFAULT_HOST.", {
+                    href: window.location.href,
+                    redirectFromContext: redirectFromContext,
+                    redirect_uri: fallbackRedirectRaw,
+                    defaultHost: DEFAULT_HOST
+                });
+                hostToUse = DEFAULT_HOST;
+            }
 
-            const target = new URL(callbackUrl);
+            const target = new URL(`https://${hostToUse}/stage-routing/callback`);
             const includeState = ctx ? shouldReturnState(ctx) : !!sstState;
 
             if (useFragments) {
